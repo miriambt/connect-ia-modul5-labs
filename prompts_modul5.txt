@@ -1,0 +1,149 @@
+PROMPTS DE LES PRÀCTIQUES
+Copiats literalment de les diapositives de pràctica (ConnectIA_Integracio_Models_Llenguatge_practica.pptx).
+
+========================================================================
+PRÀCTICA · RAG
+========================================================================
+
+--- Diapositiva 24 · Pràctica: un assistent de suport amb RAG local ---
+
+[PROMPT INICIAL (CONSELL)]
+Convencions del projecte: paquet helpdesk_lab, una ordre de línia d'ordres per pas, executat amb uv
+
+--- Diapositiva 26 · Comparar frases amb la similitud del cosinus ---
+
+[PROMPT PAS 1]
+Crea un paquet de Python anomenat helpdesk_lab que pugui executar com a eina de línia d'ordres amb `uv run python -m helpdesk_lab <ordre>`. Fes servir subordres d'argparse: cada exercici del curs hi afegirà una ordre nova.
+La primera ordre és `cosine`. Agafa tres frases d'exemple: "reset account password", "change password" i "submit travel receipt". Converteix cada frase en un vector de recompte de paraules sobre un vocabulari compartit, i mostra el vocabulari i els tres vectors.
+
+[PROMPT PAS 2]
+Ara fes que `cosine` rebi una frase de consulta. Converteix-la en vector de la mateixa manera i calcula la similitud del cosinus amb cada frase, a mà amb Python pur i sense biblioteques, perquè pugui seguir els càlculs. Mostra les frases de més a menys semblant amb tres decimals. Si la consulta no comparteix cap paraula, mostra "No shared words".
+
+--- Diapositiva 27 · Carregar els documents i cercar per paraula ---
+
+[PROMPT PAS 1]
+Els documents de l'empresa són a data/helpdesk/ (it.txt, hr.txt i expenses.txt). Afegeix un config.py on visquin els camins del projecte i un documents.py que llegeixi tots els .txt d'aquesta carpeta, amb el nom del fitxer sense extensió com a ID.
+Afegeix dues ordres: `load` mostra cada fitxer i quants caràcters té, i `tokens` separa cada text en paraules i nombres en minúscules i mostra quants n'hi ha i els primers.
+
+[PROMPT PAS 2]
+Afegeix una ordre `keyword PARAULA` que compti quantes vegades apareix exactament aquesta paraula a cada fitxer i els llisti de més a menys coincidències. Si cap fitxer la conté, mostra "No matches".
+
+--- Diapositiva 28 · Dividir els documents en fragments ---
+
+[PROMPT]
+Divideix cada document en fragments, un per paràgraf (els paràgrafs se separen amb línies en blanc). Dona a cada fragment un ID estable amb el nom del fitxer i la posició començant per 1, com it.1, it.2 … it.10. Desa'n també el fitxer d'origen i la categoria: IT, HR o Expenses, segons el fitxer.
+Afegeix una ordre `chunks` que llisti cada fragment amb l'ID, l'origen, la categoria i l'inici del text, i el total al final.
+
+--- Diapositiva 29 · Calcular els embeddings i desar-los a Chroma ---
+
+[PROMPT]
+Vull desar els fragments en una base de dades Chroma al disc, a var/chroma, perquè es conservin entre execucions.
+– Posa els noms dels models a config.py: xat gemma4:e2b i embeddings bge-m3, servits pel meu Ollama local. Que es puguin canviar amb variables d'entorn.
+– Crea llm.py, un petit client de l'API HTTP d'Ollama (/api/embed i /api/chat) per obtenir embeddings i respostes de xat, només amb la biblioteca estàndard. El portàtil té poca RAM, així que: demana a Ollama que descarregui cada model en acabar (keep_alive), desactiva el mode thinking de Gemma 4 (think: false) i limita el context del xat a NUM_CTX tokens (a config.py, 4096 per defecte, canviable amb una variable d'entorn).
+– Crea index.py amb un PersistentClient de chromadb: calculem els embeddings nosaltres amb llm.py (que Chroma no faci servir el seu model), amb similitud del cosinus, i la col·lecció porta el nom del model d'embeddings perquè no es barregin mai vectors de models diferents.
+– Afegeix una ordre `index` que indexi tots els fragments i mostri el nom de la col·lecció, el nombre de files i la mida del vector.
+
+--- Diapositiva 30 · Cercar per significat ---
+
+[PROMPT]
+Afegeix una ordre `search` que rebi una pregunta i retorni els fragments més semblants de l'índex. Per a cada resultat, mostra l'ID, la distància, la similitud (1 − distància) i l'inici del text.
+Opcions: --k per a quants resultats, --category per cercar només en una categoria, i --expect ID, que mostra Hit@k: 1 si aquell fragment és entre els resultats i 0 si no.
+
+--- Diapositiva 31 · Mirar dins de l'índex ---
+
+[PROMPT]
+Vull mirar dins de la base de dades Chroma que hem creat. Crea explore.py amb dues ordres:
+– `stats`: quin model d'embeddings i quina col·lecció fem servir, quants fragments hi ha, la mida del vector, quants fragments surten de cada fitxer i la mitjana de paraules per fragment.
+– `show ID`: el text complet i les metadades d'un fragment, la seva dimensió, la seva norma (la longitud del vector) i els primers nombres, i els fragments més propers amb la seva similitud. Afegeix --k per triar quants veïns. Si l'ID no existeix, digues-ho clarament.
+Mostra-ho tot com a JSON llegible.
+
+--- Diapositiva 32 · Explorar l'índex visualment (1/2): les dades ---
+
+[PROMPT]
+Vull una pàgina interactiva per explorar l'índex. Primer, prepara les dades a explore.py:
+– Una llista de preguntes de prova en anglès, castellà i català, cadascuna amb els IDs dels fragments que contenen la resposta (te la passo a continuació).
+– Projecta tots els vectors a 2 dimensions amb PCA (numpy ja és instal·lat) per dibuixar-los en un mapa, i indica quanta variància conserva el mapa 2D.
+– Calcula la similitud de cada fragment amb tots els altres.
+– Per a cada pregunta de prova, fes la cerca i guarda'n els 5 primers resultats.
+
+[LLISTA DE PREGUNTES PER ENGANXAR]
+"How soon do I need to file a reimbursement?" → expenses.1
+"¿Cuándo necesito una factura completa con IVA?" → expenses.8
+"Quin és el límit d'hotel a Londres?" → expenses.4
+"Me ascendieron en septiembre, ¿cuándo cambia mi portátil?" → hr.8, it.2
+"How many vacation days do I get in Lisbon?" → hr.4
+"Can I expense my home internet?" → expenses.7, hr.6
+"Puc connectar-me a la VPN des de fora de la UE?" → it.4
+
+--- Diapositiva 33 · Explorar l'índex visualment (2/2): la pàgina ---
+
+[PROMPT]
+Crea una ordre `export` que escrigui var/explorer.html, un únic fitxer HTML que pugui obrir amb doble clic, amb totes les dades a dins. Ha de tenir:
+– A dalt, un resum (model, col·lecció, nombre de fragments, mida del vector), filtres per categoria i un cercador de paraules dins dels fragments.
+– Una pestanya Map: cada fragment és un punt de color segons la categoria. En fer clic en un punt, mostra el text i els 5 fragments més propers amb barres de similitud, i dibuixa línies cap a ells al mapa.
+– Una pestanya Similarity: un mapa de calor de la similitud entre fragments que mostri el valor exacte en passar-hi el ratolí.
+– Una pestanya Questions: cada pregunta de prova amb els 5 primers resultats i la seva similitud, els esperats marcats i els totals Hit@3 i Hit@5.
+Que sigui net i llegible, i que funcioni en mode clar i fosc.
+
+--- Diapositiva 34 · Un assistent RAG amb cites ---
+
+[PROMPT]
+Crea rag.py i una ordre `ask` que respongui preguntes dels empleats amb els nostres documents:
+1. Troba els fragments més rellevants amb la nostra cerca i passa'ls a Gemma com a evidència, cadascun etiquetat amb el seu ID, com [expenses.1].
+2. Digues a Gemma que respongui només amb aquesta evidència, que citi els IDs que ha fet servir entre claudàtors, que respongui exactament "I don't know" si la resposta no hi és, i que ho faci en la mateixa llengua de la pregunta. Vull respostes consistents: temperatura 0.
+3. Després de la resposta, comprova les cites: quants dels IDs citats eren realment entre els fragments recuperats. Mostra-ho com a "trobats/citats", o N/A si no n'hi ha cap.
+4. Mostra els fragments recuperats amb la seva similitud, la resposta i la comprovació de cites. Opcions: --k i --category, com a search.
+
+========================================================================
+PRÀCTICA · LANGGRAPH
+========================================================================
+
+--- Diapositiva 44 · Classificar missatges en JSON ---
+
+[PROMPT]
+Crea classifier.py i una ordre `classify MISSATGE`. Gemma llegeix el missatge d'un empleat i decideix si és d'IT, HR o Expenses, o de cap si és vague o barreja temes.
+– Descriu cada categoria a les instruccions amb exemples dels nostres documents: IT són contrasenyes, VPN, portàtils…; HR són vacances, teletreball, ascensos…; Expenses són despeses, rebuts, hotels…
+– Obliga Gemma a respondre amb JSON de la forma {"category": ...} amb la sortida estructurada d'Ollama (l'opció format amb un JSON Schema). Deixa-li fer servir la paraula "none" per al cas vague, i converteix-la a null al nostre codi.
+– Comprova sempre la resposta: si no és vàlida, avisa per stderr i retorna null.
+– Vull la mateixa resposta cada vegada per al mateix missatge.
+
+--- Diapositiva 45 · Enrutar peticions amb LangGraph ---
+
+[PROMPT]
+Construeix un assistent de suport amb LangGraph a workflow.py (un StateGraph amb un estat tipat i arestes condicionals), amb una ordre `workflow MISSATGE` que mostri la categoria, la ruta i el resultat.
+– Primer pas: classificar el missatge amb el nostre classificador.
+– Després, decidir on anar: ticket si la persona demana obrir un tiquet i descriu un problema real; clarify si demana un tiquet sense descriure el problema (per exemple "Please open an IT ticket.") o si el missatge és massa vague per classificar-lo; answer en tots els altres casos, amb el nostre RAG filtrat per la categoria del missatge. Les peticions de tiquet poden arribar en anglès, castellà o català ("ticket", "tiquet", "incidencia", "incidència").
+– clarify només demana més detalls amablement.
+– Per als tiquets, crea tickets.py, un sistema de tiquets simulat que desa cada tiquet com una línia JSON a var/tickets.jsonl, amb un ID com TCK-1A2B3C4D, la categoria, el resum i la data. De moment, el pas ticket el crida directament.
+
+========================================================================
+PRÀCTICA · MCP
+========================================================================
+
+--- Diapositiva 55 · Crear un servidor MCP per a l'app de tiquets ---
+
+[PROMPT]
+Converteix el nostre sistema de tiquets en un servidor MCP a mcp_server.py, amb MCPServer de l'SDK oficial de MCP per a Python, versió 2 (from mcp.server import MCPServer), que s'executi en local per stdio. Anomena'l "helpdesk-tickets". Ha d'oferir:
+– una eina per crear un tiquet a partir d'una categoria i un resum, que retorni l'ID del tiquet. Si la categoria no és IT, HR o Expenses, ha de retornar un error clar amb les opcions vàlides;
+– una eina per llistar els últims tiquets, opcionalment només d'una categoria;
+– una eina per cercar a les polítiques que reutilitzi la nostra cerca semàntica i retorni IDs, similitud i text;
+– un recurs de només lectura "tickets://recent" amb els 10 últims tiquets.
+Escriu una descripció clara per a cada eina, perquè la llegeix la IA. Assegura't que l'eina de crear tiquets declari què retorna (un TypedDict), perquè els clients rebin dades estructurades i no només text. Per a entrades incorrectes, llança un ToolError (from mcp.server.mcpserver.exceptions import ToolError). Recorda que un servidor stdio no pot escriure res a la sortida estàndard.
+
+--- Diapositiva 56 · Connectar el servidor a Claude Code ---
+
+[PREGUNTA A CLAUDE CODE]
+Using the helpdesk tools, what is the hotel cap in Paris for a Band E employee?
+
+[PREGUNTA A CLAUDE CODE]
+Open an IT ticket: my laptop fan is very loud.
+
+[PREGUNTA A CLAUDE CODE]
+Open a Marketing ticket.
+
+--- Diapositiva 57 · Cridar l'eina MCP des del nostre graf ---
+
+[PROMPT]
+A workflow.py, canvia el pas ticket perquè ja no cridi tickets.py directament. En lloc d'això, ha d'arrencar el nostre servidor MCP i fer servir la seva eina de crear tiquets com a client MCP (Client de mcp amb StdioServerParameters), igual que fa Claude Code.
+Si l'eina retorna un error, atura't amb aquest error; si no, llegeix l'ID del tiquet del resultat estructurat. La resta del graf no és asíncrona: mantén-la així i fes el pont amb asyncio.run.
+
